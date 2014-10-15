@@ -1,0 +1,63 @@
+
+.table-container {
+    /* padding: 20px; */
+    /* background-color: #f2f2f2;*/
+    /* border: solid 1px #eee; */
+}
+
+.table-row-container {
+}
+
+.table-head-cell-container {
+    float:left;
+    width: 120px;
+}
+
+.table-head-cell-content-container {
+    margin-right: 1px;
+    cursor: pointer;
+}
+
+.table-body-cell-container {
+    float:left;
+    width: 120px;
+}
+
+.table-head-cell-sort-icon {
+    float:right;
+    padding: 3px 0px;
+    /* cursor: pointer; */
+}
+
+.table-body-cell-content-container {
+    overflow-x: hidden;
+}
+
+.table-body-cell-text-container {
+    white-space: nowrap;
+}
+
+/* bordered table */
+.table-container.table-container-bordered .table-head-cell-container {
+    padding: 2px 5px;
+    border-top: solid 1px #f2f2f2;
+    border-bottom: solid 1px #f2f2f2;
+    border-right: solid 1px #f2f2f2;
+    background-color: transparent;
+    text-align: left;
+}
+
+.table-container.table-container-bordered .table-head-cell-container:first-child {
+    border-left: solid 1px #f2f2f2;
+}
+
+.table-container.table-container-bordered .table-body-cell-container {
+    padding: 2px 5px;
+    border-right: solid 1px #f2f2f2;
+    border-bottom: solid 1px #f2f2f2;
+    text-align: left;
+}
+
+.table-container.table-container-bordered .table-row-container .table-body-cell-container:first-child {
+    border-left: solid 1px #f2f2f2;
+}
