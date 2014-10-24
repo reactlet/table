@@ -1,5 +1,5 @@
-table
-=====
+Reactlet Table
+==============
 
 Reactlet table component
 
