@@ -1,4 +1,4 @@
-/** @jsx React.DOM */
+
 
 // Table component
 var Table = React.createClass({
