@@ -1,5 +1,3 @@
-
-
 // Table component
 var Table = React.createClass({
     name: 'table',
