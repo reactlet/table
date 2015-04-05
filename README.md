@@ -3,7 +3,6 @@ Reactlet Table
 
 Reactlet table component
 
-![Table example](res/reactlet-table-demo.png)
 
 ```
 <link rel="stylesheet" href="/component/common/common-style.css"/>
