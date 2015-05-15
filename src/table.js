@@ -1,14 +1,21 @@
+/** @jsx React.DOM */
+
+var React = require('react');
+
 // Table component
 var Table = React.createClass({
     name: 'table',
     mixins: [getCommonMixin],
     
     // attribute definitions
+    // paging example: { size:10, page:2 }
     getAttributes: function() {
         var attributes = [
-            { name:'boxClass', type:'string', required:false, defaultValue:'', note:'container CSS class' },
+            { name:'boxClass', type:'string', required:false, defaultValue:'table-container-bordered', note:'container CSS class' },
+            { name:'dispatcher', type:'object', required:false, defaultValue:null, note:'flux dispatcher' },
             { name:'colModel', type:'object', required:false, defaultValue:null, note:'column model' },
             { name:'dataItems', type:'array', required:false, defaultValue:[], note:'data items' },
+            { name:'paging', type:'object', required:false, defaultValue: null, note:'paging options' },
             { name:'text', type:'string', required:false, defaultValue:'', note:'display text' }
         ];
         return attributes;
@@ -33,6 +40,7 @@ var Table = React.createClass({
             target.hasClass('table-head-cell-sort-icon') ) {
             this.onHeadCellClick(event);
         }
+        this.fire('table-cell-click', [{ target:target }]);
     },
     
     onHeadCellClick: function(event) {
@@ -101,18 +109,42 @@ var Table = React.createClass({
         return colModel;
     },
     
-    componentWillMount: function() {
-        // update colModel
-        if (!this.state.colModel) {
+    // normalize input
+    normalizeInput: function(dataItems) {
+        var resultItems = [];
+        dataItems = dataItems || [];
+        if (typeof dataItems === 'object') {
+            if (dataItems.constructor.name === 'Array') {
+                // make sure content is object, otherwise convert to object
+                for (var i = 0; i < dataItems.length; i++) {
+                    if (typeof dataItems[i] !== 'object') {
+                        resultItems.push({ value:dataItems[i] });
+                    } else {
+                        resultItems.push(dataItems[i]);
+                    }
+                }
+            } else if (dataItems.constructor.name === 'Object') {
+                for (var p in dataItems) {
+                    resultItems.push({ name:p, value:dataItems[p] })
+                }
+            }
+        }
+        return resultItems;
+    },
+    
+    processInput: function() {
+        this.state.dataItems = this.normalizeInput(this.state.dataItems);
+        // update colModel if it is empty
+        if (!this.state.colModel || JSON.stringify(this.state.colModel) === '{}') {
             this.state.colModel = this.getColModel(this.state.dataItems[0]);
         }
         this.state.colModel = this.normalizeColModel(this.state.colModel);
         // find primary key field name from colModel
         this.keyColName = this.getKeyColNameFromColModel(this.state.colModel);
-        //console.log('colModel:', this.state.colModel);
     },
     
     render: function() {
+        this.processInput();
         // populate head cells
         var headCellRowDataItems = [];
         for (var property in this.state.colModel) {
@@ -122,6 +154,7 @@ var Table = React.createClass({
                 headCellRowDataItems.push(colModelItem);
             }
         }
+        
         var headCellRowData = {
             type: 'head',
             dataItems: headCellRowDataItems
@@ -336,3 +369,5 @@ var TableBodyCell = React.createClass({
         );
     }
 });
+
+module.exports = Table;

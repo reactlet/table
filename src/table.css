@@ -10,7 +10,7 @@
 
 .table-head-cell-container {
     float:left;
-    width: 120px;
+    width: 150px;
 }
 
 .table-head-cell-content-container {
@@ -20,7 +20,7 @@
 
 .table-body-cell-container {
     float:left;
-    width: 120px;
+    width: 180px;
 }
 
 .table-head-cell-sort-icon {
