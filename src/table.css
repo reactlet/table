@@ -5,7 +5,12 @@
     /* border: solid 1px #eee; */
 }
 
-.table-row-container {
+.table-row-active .table-body-cell-container{
+    background-color: #f2f2f2;
+}
+
+.table-row-container:hover .table-body-cell-container {
+    background-color: #f2f2f2;
 }
 
 .table-head-cell-container {
@@ -60,4 +65,18 @@
 
 .table-container.table-container-bordered .table-row-container .table-body-cell-container:first-child {
     border-left: solid 1px #f2f2f2;
+}
+
+/* paging bar */
+.pagingbar-content-container {
+    padding-top: 10px;
+    padding-bottom: 10px;
+}
+
+.pagingbar-content-container .btn-paging {
+    padding: 5px;
+}
+
+.pagingbar-content-container .pagingbar-label-container {
+    padding: 5px;
 }

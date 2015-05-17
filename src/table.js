@@ -8,14 +8,15 @@ var Table = React.createClass({
     mixins: [getCommonMixin],
     
     // attribute definitions
-    // paging example: { size:10, page:2 }
+    // paging example: { size:10, page:2, total:25 }
     getAttributes: function() {
         var attributes = [
             { name:'boxClass', type:'string', required:false, defaultValue:'table-container-bordered', note:'container CSS class' },
             { name:'dispatcher', type:'object', required:false, defaultValue:null, note:'flux dispatcher' },
             { name:'colModel', type:'object', required:false, defaultValue:null, note:'column model' },
             { name:'dataItems', type:'array', required:false, defaultValue:[], note:'data items' },
-            { name:'paging', type:'object', required:false, defaultValue: null, note:'paging options' },
+            { name:'paging', type:'object', required:false, defaultValue:null, note:'paging options' },
+            { name:'activeItemId', type:'string', required:false, defaultValue:'', note:'the active item id' },
             { name:'text', type:'string', required:false, defaultValue:'', note:'display text' }
         ];
         return attributes;
@@ -33,12 +34,16 @@ var Table = React.createClass({
         return colModel;
     },
     
-    onClick: function(event) {
+    onTableClick: function(event) {
         var target = $(event.target);
         if (target.hasClass('table-head-cell-content-container') ||
             target.hasClass('table-head-cell-text-container') ||
             target.hasClass('table-head-cell-sort-icon') ) {
             this.onHeadCellClick(event);
+        } else if (target.hasClass('table-body-cell-container') ||
+            target.hasClass('table-body-cell-content-container') ||
+            target.hasClass('table-body-cell-text-container') ) {
+            this.onRowClick(event);
         }
         this.fire('table-cell-click', [{ target:target }]);
     },
@@ -75,6 +80,22 @@ var Table = React.createClass({
         this.state.dataItems = this.sortData(this.state.dataItems, sortCondition);
         // update display
         this.forceUpdate();
+    },
+    
+    onRowClick: function(event) {
+        var target = $(event.target);
+        var parents = target.parents('.table-row-container');
+        var rowContainer = parents && parents[0];
+        // set active class for clicked row
+        var tableContentContainer = target.parents('.table-content-container');
+        $(tableContentContainer).find('.table-row-container').removeClass('table-row-active');
+        $(rowContainer).addClass('table-row-active');
+        // get row id and fire event
+        var itemId = $(rowContainer).attr('data-key');
+        if (itemId) {
+            this.state.activeItemId = itemId;
+            this.fire('table-row-click', [{ id:itemId }]);
+        }
     },
     
     /*
@@ -132,6 +153,16 @@ var Table = React.createClass({
         return resultItems;
     },
     
+    // populate paging object
+    normalizePaging: function(paging) {
+        paging.start = (paging.page - 1) * paging.size + 1;
+        paging.stop = paging.start + paging.size - 1;
+        if (paging.stop > paging.total) {
+            paging.stop = paging.total;
+        }
+        return paging;
+    },
+    
     processInput: function() {
         this.state.dataItems = this.normalizeInput(this.state.dataItems);
         // update colModel if it is empty
@@ -141,6 +172,67 @@ var Table = React.createClass({
         this.state.colModel = this.normalizeColModel(this.state.colModel);
         // find primary key field name from colModel
         this.keyColName = this.getKeyColNameFromColModel(this.state.colModel);
+        // normalize paging object
+        if (this.state.paging) {
+            this.state.paging.total = this.state.dataItems.length;
+            this.state.paging = this.normalizePaging(this.state.paging);
+        }
+    },
+    
+    // get rows for display (considering paging)
+    getDisplayRows: function() {
+        var rows = [];
+        if (this.state.paging) {
+            var start = this.state.paging.start;
+            var stop = this.state.paging.stop;
+            for (var i = start; i <= stop; i++) {
+                rows.push(this.state.dataItems[i-1]);
+            }
+        } else {
+            rows = this.state.dataItems;
+        }
+        return rows;
+    },
+    
+    componentDidMount: function() {
+        this.bindPagingbar();
+    },
+    
+    componentDidUpdate: function() {
+        this.bindPagingbar();
+    },
+    
+    bindPagingbar: function() {
+        // get pagingbar and subscribe to pagingbar events
+        var pagingbar = this.refs['pagingbar'];
+        pagingbar.on('pagingbar-button-click', function(event) {
+            var buttonType = event && event.type;
+            var paging = event && event.paging; // current paging status
+            if (this.state.paging) {
+                var currentPage = paging.page;
+                switch (buttonType) {
+                    case 'begin':
+                        currentPage = 1;
+                        break;
+                    case 'back':
+                        if (currentPage > 1) {
+                            currentPage = currentPage - 1;
+                        }
+                        break;
+                    case 'next':
+                        if (currentPage < paging.pages) {
+                            currentPage = currentPage + 1;
+                        }
+                        break;
+                    case 'end':
+                        currentPage = paging.pages;
+                        break;
+                }
+            }
+            this.state.paging.page = currentPage;
+            // update display
+            this.forceUpdate();
+        }.bind(this));
     },
     
     render: function() {
@@ -154,15 +246,15 @@ var Table = React.createClass({
                 headCellRowDataItems.push(colModelItem);
             }
         }
-        
         var headCellRowData = {
             type: 'head',
             dataItems: headCellRowDataItems
         };
         // populate body cells
         var cellRows = [];
-        for (var i = 0; i < this.state.dataItems.length; i++) {
-            var dataItem = this.state.dataItems[i];
+        var displayRows = this.getDisplayRows();
+        for (var i = 0; i < displayRows.length; i++) {
+            var dataItem = displayRows[i];
             var cellRow = [];
             var bodyCellRowDataItems = [];
             for (var property in this.state.colModel) {
@@ -177,11 +269,6 @@ var Table = React.createClass({
                     bodyCellRowDataItems.push(bodyCellData);
                 }
             }
-            var bodyCellRowData = {
-                    type: 'body',
-                    context: { row:i+1 },
-                    dataItems: bodyCellRowDataItems
-                };
             // set row key
             var bodyRowKey = 'body-row-' + (i+1) + '-';
             if (this.keyColName) {
@@ -189,17 +276,25 @@ var Table = React.createClass({
             } else {
                 bodyRowKey += this.generateUid();
             }
+            var bodyCellRowData = {
+                    type: 'body',
+                    key: dataItem[this.keyColName],
+                    context: { row:i+1 },
+                    dataItems: bodyCellRowDataItems
+                };
             cellRows.push(<TableRow data={ bodyCellRowData } key={ bodyRowKey } />);
         }
-        
-        return (
-            <div className={ this.state.containerClassNames.join(' ') }
-                onClick={ this.onClick }
-                >
-                <TableRow data={ headCellRowData } />
-                { cellRows }
+        // set pagingbar key
+        var pagingbarKey = 'pagingbar-' + JSON.stringify(this.state.paging);
+        var tableObject = 
+            <div className={ this.state.containerClassNames.join(' ') } >
+                <div className="table-content-container" onClick={ this.onTableClick } >
+                    <TableRow data={ headCellRowData } />
+                    { cellRows }
+                </div>
+                <PagingBar data={ this.state.paging } ref="pagingbar" key={ pagingbarKey } />
             </div>
-        );
+        return tableObject;
     }
 });
 
@@ -213,6 +308,7 @@ var TableRow = React.createClass({
         var attributes = [
             { name:'boxClass', type:'string', required:false, defaultValue:'', note:'container CSS class' },
             { name:'type', type:'string', required:false, defaultValue:'body', note:'row type: head/body' },
+            { name:'key', type:'string', required:false, defaultValue:'', note:'row key value' },
             { name:'context', type:'object', required:false, defaultValue:{}, note:'row context' },
             { name:'dataItems', type:'array', required:false, defaultValue:'', note:'data items' }
         ];
@@ -244,7 +340,7 @@ var TableRow = React.createClass({
         }
         // set content display
         return (
-            <div className={ this.state.containerClassNames.join(' ') } >
+            <div className={ this.state.containerClassNames.join(' ') } data-key={ this.state.key } >
                 { rowContent }
                 <div className="div-clear-both"></div>
             </div>
@@ -362,11 +458,73 @@ var TableBodyCell = React.createClass({
         return (
             <div className={ this.state.containerClassNames.join(' ') }
                 data-model-name={ this.state.model.name }
-                style={ divStyle }
-                >
+                style={ divStyle } >
                 { content }
             </div>
         );
+    }
+});
+
+// Paging toolbar
+var PagingBar = React.createClass({
+    name: 'pagingbar',
+    mixins: [getCommonMixin],
+    
+    // attribute definitions
+    getAttributes: function() {
+        var attributes = [
+            { name:'boxClass', type:'string', required:false, defaultValue:'', note:'container CSS class' },
+            { name:'size', type:'number', required:true, defaultValue:10, note:'page size' },
+            { name:'total', type:'number', required:true, defaultValue:0, note:'total count' },
+            { name:'page', type:'number', required:true, defaultValue:1, note:'current page number' },
+            { name:'start', type:'number', required:true, defaultValue:1, note:'page start' },
+            { name:'stop', type:'number', required:true, defaultValue:10, note:'page end' }
+        ];
+        return attributes;
+    },
+    
+    onPagingButtonClick: function(event) {
+        var buttonType = '';
+        var target = $(event.target);
+        if (target.hasClass('btn-paging-begin')) {
+            buttonType = 'begin';
+        } else if (target.hasClass('btn-paging-back')) {
+            buttonType = 'back';
+        } else if (target.hasClass('btn-paging-next')) {
+            buttonType = 'next';
+        } else if (target.hasClass('btn-paging-end')) {
+            buttonType = 'end';
+        }
+        if (buttonType) {
+            var paging = {
+                pages:this.state.pages,
+                page:this.state.page
+            };
+            this.fire('pagingbar-button-click', [{ paging:paging, type:buttonType }]);
+        }
+    },
+    
+    render: function() {
+        var pagingbar = null;
+        if (this.state.total > 0) {
+            // set content display
+            this.state.pages = Math.ceil(this.state.total/this.state.size);
+            var pagingStatus = this.state.page + '/' + this.state.pages;
+            // add paging buttons and label display
+            var content =
+                <div className="pagingbar-content-container" onClick={ this.onPagingButtonClick }>
+                    <i className="btn-paging btn-paging-begin fa fa-step-backward"></i>
+                    <i className="btn-paging btn-paging-back fa fa-backward"></i>
+                    <span className="pagingbar-label-container">{ pagingStatus }</span>
+                    <i className="btn-paging btn-paging-next fa fa-forward"></i>
+                    <i className="btn-paging btn-paging-end fa fa-step-forward"></i>
+                </div>;
+            pagingbar =
+                <div className={ this.state.containerClassNames.join(' ') }>
+                    { content }
+                </div>;
+        }
+        return pagingbar;
     }
 });
 
